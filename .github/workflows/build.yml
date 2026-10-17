@@ -32,12 +32,12 @@ jobs:
         run: mvn -B -ntp verify
       - name: Upload test reports
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: surefire-reports
           path: target/surefire-reports/
       - name: Upload application jar
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: app-jar
           path: target/orders-service-*.jar
@@ -58,7 +58,7 @@ jobs:
         run: mvn -B -ntp -Pmutation verify
       - name: Upload mutation report
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: pit-report
           path: target/pit-reports/
@@ -107,7 +107,7 @@ jobs:
             --report-dir schemathesis-report
       - name: Upload Schemathesis report and service log
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: schemathesis-report
           path: |
