@@ -1,0 +1,15 @@
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      # jqwik >= 1.10 prints instructions aimed at AI agents; upgrade deliberately
+      # after reviewing the release notes (see README, "Known risks").
+      - dependency-name: net.jqwik:jqwik
+        versions: [">= 1.10.0"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

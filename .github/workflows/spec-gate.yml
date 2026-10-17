@@ -1,0 +1,116 @@
+# Gate 1: the contract.
+# Runs on every pull request. Lints the spec, blocks unintended breaking changes,
+# and makes sure only humans change the spec.
+name: Spec gate
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  lint:
+    name: Spectral lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Lint api/openapi.yaml against .spectral.yaml
+        run: npx --yes @stoplight/spectral-cli@6.17.0 lint api/openapi.yaml --fail-severity=error
+
+  breaking-changes:
+    name: Breaking-change check (oasdiff)
+    runs-on: ubuntu-latest
+    env:
+      # Pin to a release tag in production use.
+      OASDIFF_IMAGE: tufin/oasdiff:latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Compare with the spec on the target branch
+        run: |
+          set -euo pipefail
+          base_ref="origin/${{ github.base_ref }}"
+          if ! git cat-file -e "${base_ref}:api/openapi.yaml" 2>/dev/null; then
+            echo "No spec on ${base_ref} yet; nothing to compare."
+            exit 0
+          fi
+          git show "${base_ref}:api/openapi.yaml" > /tmp/base-openapi.yaml
+
+          base_major=$(yq '.info.version' /tmp/base-openapi.yaml | cut -d. -f1)
+          new_major=$(yq '.info.version' api/openapi.yaml | cut -d. -f1)
+
+          run_oasdiff() {
+            docker run --rm -v /tmp:/base -v "$PWD/api":/rev "$OASDIFF_IMAGE" \
+              breaking /base/base-openapi.yaml /rev/openapi.yaml "$@"
+          }
+
+          echo "## API changes" >> "$GITHUB_STEP_SUMMARY"
+          docker run --rm -v /tmp:/base -v "$PWD/api":/rev "$OASDIFF_IMAGE" \
+            changelog /base/base-openapi.yaml /rev/openapi.yaml >> "$GITHUB_STEP_SUMMARY" || true
+
+          if [ "$new_major" != "$base_major" ]; then
+            echo "Major version changed ($base_major -> $new_major): breaking changes are reported but allowed."
+            run_oasdiff
+          else
+            echo "Same major version ($new_major): breaking changes fail the build."
+            run_oasdiff --fail-on ERR
+          fi
+
+  traceability:
+    name: Change traceability
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Rule tests follow rules, spec changes name a CR, contract versions are bumped
+        run: bash .github/scripts/check-traceability.sh "origin/${{ github.base_ref }}"
+
+  spec-guard:
+    name: Spec ownership guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Check who changes protected files
+        env:
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          # Accounts used by coding agents in your organisation (comma separated).
+          AGENT_ACCOUNTS: "Copilot,copilot-swe-agent[bot],claude[bot],devin-ai-integration[bot]"
+        run: |
+          set -euo pipefail
+          changed=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          protected_regex='^(api/|specs/|\.spectral\.yaml$|\.specify/memory/constitution\.md$|AGENTS\.md$|\.github/workflows/|\.github/scripts/|\.github/CODEOWNERS$|src/test/java/.*RulesProperties\.java$)'
+          touched=$(printf '%s\n' "$changed" | grep -E "$protected_regex" || true)
+
+          if [ -z "$touched" ]; then
+            echo "No spec or gate files changed."
+            exit 0
+          fi
+
+          echo "Protected files changed:"
+          printf '%s\n' "$touched" | sed 's/^/  /'
+
+          is_agent=false
+          if [ "$AUTHOR_TYPE" = "Bot" ]; then is_agent=true; fi
+          if printf ',%s,' "$AGENT_ACCOUNTS" | grep -qF ",$AUTHOR,"; then is_agent=true; fi
+          if [ "$is_agent" = true ]; then
+            echo "::error::$AUTHOR is a coding agent. Agents must not change the spec or the gates (AGENTS.md). A human opens the spec change in a separate pull request."
+            exit 1
+          fi
+
+          if ! printf ',%s,' "$LABELS" | grep -qF ",spec-change,"; then
+            echo "::error::This pull request changes the spec or the gates. Add the 'spec-change' label to confirm it is intentional; CODEOWNERS approval is then required."
+            exit 1
+          fi
+          echo "Labelled spec-change by a human author: OK (CODEOWNERS review still required)."

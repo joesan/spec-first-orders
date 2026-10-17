@@ -1,0 +1,7 @@
+target/
+.jqwik-database
+*.iml
+.idea/
+.vscode/
+.DS_Store
+schemathesis-report/

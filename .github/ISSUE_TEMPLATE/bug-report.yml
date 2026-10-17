@@ -1,0 +1,53 @@
+name: Bug report
+description: The service does something wrong. First check whether the code or the spec is wrong.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        In a spec-first project there are two kinds of bugs:
+
+        - **Implementation bug**: the spec is right and the code does something else. Fixed in code; the spec stays unchanged.
+        - **Spec bug**: the code does what the spec says, but the spec is wrong. That is a change request; please use the *Change request* form instead.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Does the behaviour contradict the spec?
+      options:
+        - "Yes: the spec says X, the service does Y (implementation bug)"
+        - "No: the service follows the spec, but the spec is wrong (use the Change request form)"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: input
+    id: rule
+    attributes:
+      label: Rule or operation
+      description: The rule id (R3) or operation (POST /orders) whose spec is violated.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Request and response
+      description: The request you sent and the response you got (curl or HTTP is fine). Remove personal data.
+      render: http
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected, according to the spec
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        The fix for an implementation bug should add a test that would have caught it
+        (a property in `*RulesProperties.java` or a Schemathesis finding).

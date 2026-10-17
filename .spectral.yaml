@@ -1,0 +1,98 @@
+# API style guide, enforced on every pull request (see .github/workflows/spec-gate.yml).
+# Run locally: npx @stoplight/spectral-cli@6.17.0 lint api/openapi.yaml
+extends:
+  - spectral:oas
+
+rules:
+  # --- Stricter versions of built-in rules -------------------------------
+  operation-operationId: error
+  operation-description: error
+  operation-tags: error
+  operation-success-response: error
+  oas3-unused-component: error
+  info-contact: warn
+
+  # --- House rules --------------------------------------------------------
+  operation-id-camel-case:
+    description: operationIds become Java method names, so they must be lowerCamelCase.
+    severity: error
+    given: $.paths[*][get,put,post,delete,patch].operationId
+    then:
+      function: casing
+      functionOptions:
+        type: camel
+
+  path-kebab-case:
+    description: Path segments are lowercase kebab-case; parameters stay in braces.
+    severity: error
+    given: $.paths
+    then:
+      field: '@key'
+      function: pattern
+      functionOptions:
+        match: '^(\/([a-z0-9]+(-[a-z0-9]+)*|\{[a-zA-Z]+\}))+$'
+
+  property-camel-case:
+    description: JSON properties are lowerCamelCase.
+    severity: error
+    given: $.components.schemas[*].properties
+    then:
+      field: '@key'
+      function: casing
+      functionOptions:
+        type: camel
+
+  money-is-integer-cents:
+    description: Money amounts are integer euro cents in properties ending with "Cents".
+    severity: error
+    given: $.components.schemas[*].properties[?(@property.match(/Cents$/))]
+    then:
+      - field: type
+        function: enumeration
+        functionOptions:
+          values: [integer]
+      - field: format
+        function: enumeration
+        functionOptions:
+          values: [int64]
+
+  error-responses-are-problem-json:
+    description: 4xx/5xx responses use RFC 9457 problem details (application/problem+json).
+    severity: error
+    given: $.components.responses[*].content
+    then:
+      field: application/problem+json
+      function: truthy
+
+  operation-declares-business-rules:
+    description: >
+      Every operation lists the business rules it implements (x-business-rules),
+      using ids from specs/*/spec.md. Use an empty list if none apply.
+    severity: error
+    given: $.paths[*][get,put,post,delete,patch]
+    then:
+      field: x-business-rules
+      function: truthy
+
+  business-rule-ids-format:
+    description: Business rule ids look like R1, R2, ...
+    severity: error
+    given: $.paths[*][get,put,post,delete,patch].x-business-rules[*]
+    then:
+      function: pattern
+      functionOptions:
+        match: '^R[0-9]+$'
+
+  request-bodies-are-closed:
+    description: Request schemas set additionalProperties to false so unknown fields are rejected.
+    severity: error
+    given: $.components.schemas[?(@property.match(/Request$/))]
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          required: [additionalProperties]
+          properties:
+            additionalProperties:
+              const: false

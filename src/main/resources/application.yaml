@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: orders-service
+  # RFC 9457 problem details for all errors come from web/ApiExceptionHandler.
+  jackson:
+    deserialization:
+      # The contract sets additionalProperties: false on request bodies (rule R1, scenario S2).
+      fail-on-unknown-properties: true
+      # Reject 1.5 for an integer field instead of silently truncating it.
+      accept-float-as-int: false

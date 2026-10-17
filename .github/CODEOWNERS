@@ -1,0 +1,17 @@
+# Spec files need approval from the spec owners. Replace the team handles with
+# your own, and enable "Require review from Code Owners" in the branch protection
+# rule for main, or this file has no effect.
+
+/api/                          @your-org/orders-spec-owners
+/specs/                        @your-org/orders-spec-owners
+/.spectral.yaml                @your-org/api-guild
+/.specify/memory/constitution.md  @your-org/api-guild
+
+# The gates themselves.
+/.github/workflows/            @your-org/api-guild
+/.github/scripts/              @your-org/api-guild
+/.github/CODEOWNERS            @your-org/api-guild
+/AGENTS.md                     @your-org/api-guild
+
+# Rule tests are part of the spec: they encode R1..Rn.
+/src/test/java/com/example/orders/domain/*RulesProperties.java  @your-org/orders-spec-owners

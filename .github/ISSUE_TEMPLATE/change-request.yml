@@ -1,0 +1,82 @@
+name: Change request
+description: Ask for a change in what the service does or in its API. The issue number becomes the change-request id (CR-<number>).
+title: "[CR] "
+labels: ["change-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe **what** should change and **why**, not how to implement it.
+        The issue number is the change-request id: issue #17 is **CR-17**.
+        Spec, tests and code changes for this request all reference that id.
+
+  - type: dropdown
+    id: change-type
+    attributes:
+      label: Type of change
+      description: Not sure? Pick your best guess; the spec owners will reclassify it.
+      options:
+        - Rule change (a business rule R<n> behaves differently)
+        - Additive API change (new optional field, new endpoint, new enum value in a response)
+        - Breaking API change (rename, remove, new required field, stricter validation)
+        - New feature (new capability, gets its own specs/NNN-* folder)
+        - Spec bug (the spec itself is wrong or incomplete)
+    validations:
+      required: true
+
+  - type: input
+    id: affected
+    attributes:
+      label: Affected feature and rules
+      description: "Feature folder and rule ids, e.g. 001-order-management, R3. Write 'new' for a new feature."
+      placeholder: 001-order-management, R3
+    validations:
+      required: true
+
+  - type: textarea
+    id: current
+    attributes:
+      label: Current behaviour
+      description: What the spec says today. Quote the rule or point to the operation in api/openapi.yaml.
+    validations:
+      required: true
+
+  - type: textarea
+    id: desired
+    attributes:
+      label: Desired behaviour
+      description: Write it as acceptance criteria.
+      value: |
+        **Given** ...
+        **When** ...
+        **Then** ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: Business reason, who benefits, what happens if we don't do it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: consumers
+    attributes:
+      label: Affected consumers
+      description: Services or clients that call the affected operations. Required for breaking changes.
+
+  - type: input
+    id: deadline
+    attributes:
+      label: Needed by
+      placeholder: 2026-12-01
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Before submitting
+      options:
+        - label: This describes the desired behaviour, not an implementation.
+          required: true

@@ -1,0 +1,369 @@
+openapi: 3.0.3
+info:
+  title: Orders API
+  version: 1.0.0
+  description: |
+    Reference service for spec-first development.
+
+    This file is the contract. It is written and reviewed by humans BEFORE any
+    implementation exists. Controllers implement the interfaces generated from
+    it; CI verifies the running service against it.
+
+    Business rules referenced via `x-business-rules` are defined in
+    `specs/001-order-management/spec.md`.
+  contact:
+    name: Orders team
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: Orders
+    description: Create orders and move them through their lifecycle.
+
+paths:
+  /orders:
+    post:
+      tags: [Orders]
+      operationId: createOrder
+      summary: Create an order
+      description: Creates an order in status `CREATED` and computes its totals.
+      x-business-rules: [R1, R2, R3]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+            example:
+              customerId: cust-42
+              lines:
+                - sku: BOOK-001
+                  quantity: 2
+                  unitPriceCents: 2499
+      responses:
+        '201':
+          description: Order created.
+          headers:
+            Location:
+              description: URL of the created order.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          links:
+            GetCreatedOrder:
+              operationId: getOrder
+              parameters:
+                orderId: '$response.body#/id'
+            PayCreatedOrder:
+              operationId: payOrder
+              parameters:
+                orderId: '$response.body#/id'
+            ShipCreatedOrder:
+              operationId: shipOrder
+              parameters:
+                orderId: '$response.body#/id'
+            CancelCreatedOrder:
+              operationId: cancelOrder
+              parameters:
+                orderId: '$response.body#/id'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+    get:
+      tags: [Orders]
+      operationId: listOrders
+      summary: List orders
+      description: Returns the most recently created orders first.
+      x-business-rules: []
+      parameters:
+        - name: status
+          in: query
+          description: Only return orders in this status.
+          required: false
+          schema:
+            $ref: '#/components/schemas/OrderStatus'
+        - name: limit
+          in: query
+          description: Maximum number of orders to return.
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: A page of orders.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /orders/{orderId}:
+    parameters:
+      - $ref: '#/components/parameters/OrderId'
+    get:
+      tags: [Orders]
+      operationId: getOrder
+      summary: Get an order
+      description: Returns a single order by its id.
+      x-business-rules: []
+      responses:
+        '200':
+          description: The order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /orders/{orderId}/pay:
+    parameters:
+      - $ref: '#/components/parameters/OrderId'
+    post:
+      tags: [Orders]
+      operationId: payOrder
+      summary: Mark an order as paid
+      description: Allowed only from `CREATED`.
+      x-business-rules: [R4]
+      responses:
+        '200':
+          description: The paid order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /orders/{orderId}/ship:
+    parameters:
+      - $ref: '#/components/parameters/OrderId'
+    post:
+      tags: [Orders]
+      operationId: shipOrder
+      summary: Mark an order as shipped
+      description: Allowed only from `PAID`. A cancelled order can never be shipped.
+      x-business-rules: [R4, R5]
+      responses:
+        '200':
+          description: The shipped order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /orders/{orderId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/OrderId'
+    post:
+      tags: [Orders]
+      operationId: cancelOrder
+      summary: Cancel an order
+      description: Allowed from `CREATED` and `PAID`. Shipped orders cannot be cancelled.
+      x-business-rules: [R4]
+      responses:
+        '200':
+          description: The cancelled order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+components:
+  parameters:
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      description: Order identifier.
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    BadRequest:
+      description: The request is malformed or violates a validation rule.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: No order exists with this id.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Conflict:
+      description: The order's current status does not allow this transition.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    UnsupportedMediaType:
+      description: The request body is not `application/json`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+  schemas:
+    CreateOrderRequest:
+      type: object
+      description: Payload for creating an order.
+      required: [customerId, lines]
+      additionalProperties: false
+      properties:
+        customerId:
+          type: string
+          description: Identifier of the ordering customer.
+          pattern: '^[A-Za-z0-9_-]{1,64}$'
+          example: cust-42
+        lines:
+          type: array
+          description: Ordered items (rule R1).
+          minItems: 1
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/OrderLine'
+
+    OrderLine:
+      type: object
+      description: One ordered item.
+      required: [sku, quantity, unitPriceCents]
+      additionalProperties: false
+      properties:
+        sku:
+          type: string
+          description: Stock keeping unit.
+          pattern: '^[A-Z0-9-]{3,32}$'
+          example: BOOK-001
+        quantity:
+          type: integer
+          format: int32
+          description: Number of units (rule R1).
+          minimum: 1
+          maximum: 1000
+          example: 2
+        unitPriceCents:
+          type: integer
+          format: int64
+          description: Price per unit in euro cents (rule R1).
+          minimum: 1
+          maximum: 10000000
+          example: 2499
+
+    OrderStatus:
+      type: string
+      description: Lifecycle status (rule R4).
+      enum: [CREATED, PAID, SHIPPED, CANCELLED]
+
+    Order:
+      type: object
+      description: An order with computed totals.
+      required:
+        - id
+        - customerId
+        - status
+        - lines
+        - subtotalCents
+        - discountCents
+        - totalCents
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Order identifier.
+        customerId:
+          type: string
+          description: Identifier of the ordering customer.
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+        lines:
+          type: array
+          description: Ordered items.
+          items:
+            $ref: '#/components/schemas/OrderLine'
+        subtotalCents:
+          type: integer
+          format: int64
+          description: Sum of quantity × unit price over all lines (rule R2).
+          minimum: 1
+        discountCents:
+          type: integer
+          format: int64
+          description: Volume discount (rule R3).
+          minimum: 0
+          maximum: 50000
+        totalCents:
+          type: integer
+          format: int64
+          description: Subtotal minus discount; never negative (rule R2).
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp (UTC).
+
+    OrderPage:
+      type: object
+      description: A list of orders.
+      required: [items]
+      properties:
+        items:
+          type: array
+          description: Orders, most recent first.
+          items:
+            $ref: '#/components/schemas/Order'
+
+    Problem:
+      type: object
+      description: RFC 9457 problem details.
+      required: [title, status]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          description: Identifies the problem type.
+        title:
+          type: string
+          description: Short, human-readable summary.
+        status:
+          type: integer
+          format: int32
+          description: HTTP status code.
+        detail:
+          type: string
+          description: Explanation specific to this occurrence.
+        instance:
+          type: string
+          format: uri-reference
+          description: Identifies this occurrence.
