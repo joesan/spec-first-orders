@@ -19,7 +19,7 @@
 
     <properties>
         <java.version>21</java.version>
-        <openapi-generator.version>7.22.0</openapi-generator.version>
+        <openapi-generator.version>7.26.0</openapi-generator.version>
         <!--
           jqwik is pinned to 1.9.3 on purpose: releases from 1.10 on print an
           "anti-AI usage" notice to stdout that is aimed at coding agents, and
