@@ -16,7 +16,7 @@ jobs:
     name: Spectral lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -30,7 +30,7 @@ jobs:
       # Pin to a release tag in production use.
       OASDIFF_IMAGE: tufin/oasdiff:latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Compare with the spec on the target branch
@@ -67,7 +67,7 @@ jobs:
     name: Change traceability
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Rule tests follow rules, spec changes name a CR, contract versions are bumped
@@ -77,7 +77,7 @@ jobs:
     name: Spec ownership guard
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Check who changes protected files
